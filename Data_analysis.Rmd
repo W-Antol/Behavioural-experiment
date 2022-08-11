@@ -1,0 +1,163 @@
+---
+title: "Analyses from the behavioural experiment"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+          message = FALSE,
+         warning = FALSE,
+         fig.width = 8, fig.height = 8)
+library(ggplot2)
+library(ggpubr)
+library(lme4)
+library(lmerTest)
+library(effects)
+library("plyr")
+library(aods3) #to check goodness of fit - function gof
+library(car) #to get Anova-like tables
+
+```
+
+```{r eval=FALSE, include=FALSE}
+rm(list=ls())
+Dane<-read.csv2("Data.csv")
+```
+
+```{r eval=FALSE, include=FALSE}
+# variable name	- description
+# eksp_population	- population names and replicates were encoded for the purpose of the experiment, for blinding the experimenters
+# seria	- series; plates from one series were subject to observation in the same day
+# first_contact	- time to first contact (s)
+# contact	- occurrence of contact with any of the females (0-no, 1-yes)
+# contact_duration -	duration of contact with the females (s)
+# offspring	- offspring presence on the next day after observation (0-no, 1-yes)
+# tail_chasing	- duration of the tail-chasing behaviour (s)
+# population	- population name
+# generation	- generation in experimental evolution from which the analysed population was taken from a frozen stock (anc - ancestral, 97 - 97th)
+
+```
+
+```{r echo=FALSE}
+Dane$contact<-as.factor(Dane$contact)
+Dane$offspring<-as.factor(Dane$offspring)
+```
+
+# I. Analyses assessing the differences among populations in the following traits:
+
+
+(1)	Time to first contact 
+```{r}
+model1<-lm(first_contact~population, data=Dane)
+summary(model1)
+Anova(model1, type="III")
+
+#zexcluding cases where contact did not occur
+Dane$contact<-as.character(Dane$contact)
+Dane.sel<-subset(Dane, contact=="1")
+
+model1a<-lm(first_contact~population, data=Dane.sel)
+summary(model1a)
+Anova(model1a, type="III")
+
+```
+
+
+(2)	Occurrence (or not) of at least one contact with any of the females 
+```{r}
+model2<-glm(contact~population, data=Dane, family="binomial")
+summary(model2)
+Anova(model2, type="III")
+plot(model2)
+gof(model2) #checking goodness of fit
+```
+
+(3)	Total time spent in contact with females 
+```{r}
+model3<-lm(contact_duration~population, data=Dane)
+summary(model3)
+Anova(model3, type="III")
+plot(model3)
+```
+ 
+(4)	Copulation success (presence of offspring the day after observation)
+```{r}
+model4<-glm(offspring~population, data=Dane, family="binomial")
+summary(model4)
+Anova(model4, type="III")
+plot(model4)
+gof(model4)
+```
+
+(5)	Time spent by the male on chasing its tail
+```{r}
+model5<-lm(tail_chasing~population, data=Dane)
+summary(model5)
+Anova(model5, type="III")
+plot(model5)
+
+```
+
+#II. Analyses of relationships between traits, with population included as an additional fixed factor: 
+
+(6)	The effect of  the time spent by the male on chasing its tail on the total duration of contact
+```{r}
+model6<-lm(contact_duration~tail_chasing+population, data=Dane)
+summary(model6)
+plot(Dane$tail_chasing,Dane$contact_duration)
+abline(model6)
+
+Anova(model6, type="III")
+res<-resid(model6)
+hist(res)
+
+model6.int<-lm(contact_duration~tail_chasing+population+tail_chasing*population, data=Dane)
+summary(model6.int)
+#interaction is not significant
+
+anova(model6.int, model6)
+#checking if the model with interaction (model6.int) is not better than the model without (model6) - it is not
+
+```
+
+
+
+
+
+(7)	The effect of the time spent by the male on chasing its tail on copulation success (presence of offspring)
+```{r}
+model7<-glm(offspring~tail_chasing+population,  family="binomial", data=Dane)
+summary(model7)
+Anova(model7, type="III")
+library(aods3)
+gof(model7)
+
+model7.int<-glm(offspring~tail_chasing+population+tail_chasing*population,  family="binomial", data=Dane)
+summary(model7.int)
+#interaction is not significant
+
+anova(model7.int, model7, test="Chi")
+```
+
+(8)	The effect of the total duration of contact on copulation success
+```{r}
+
+model8<-glm(offspring~contact_duration+population,  family="binomial", data=Dane)
+summary(model8)
+
+Anova(model8, type="III")
+plot(effect("contact_duration",model8))
+gof(model8)
+ggplot(Dane, aes(x=contact_duration, y=offspring))+
+  geom_point()
+
+
+model8.int<-glm(offspring~contact_duration+population+contact_duration*population,  family="binomial", data=Dane)
+summary(model8.int)
+Anova(model8.int, type="III")
+#interaction is not significant
+
+anova(model8.int, model8, test="Chi")
+```
+
+
